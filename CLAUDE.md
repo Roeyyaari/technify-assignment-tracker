@@ -27,6 +27,6 @@ Add assignments with:
 
 ## Status / roadmap
 1. [x] Initial Next.js structure and simple homepage
-2. [ ] Add-assignment form and list (local state)
+2. [x] Add-assignment form and list (frontend state only, in `app/assignment-tracker.tsx`; Course, Assignment name and Due date are required; Status is Not Started / In Progress / Completed). No edit, delete or filtering yet; data is lost on refresh.
 3. [ ] Supabase integration
 4. [ ] Deploy to Vercel
