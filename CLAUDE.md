@@ -11,13 +11,13 @@ Add assignments with:
 
 ## Stack
 - Frontend: Next.js (App Router, TypeScript, Tailwind CSS)
-- Database: Supabase (**not added yet**)
+- Database: Supabase (`assignments` table; client in `lib/supabase.ts`; keys via `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local`, see `.env.example`)
 - Deployment: Vercel
 
 ## Principles
 - Keep the project intentionally small and polished.
 - No extra features or dependencies beyond what is asked.
-- Do not add Supabase until explicitly requested.
+- Never commit Supabase keys or `.env.local`. No auth, edit, delete or filtering until requested.
 - Do not commit unless asked.
 
 ## Commands
@@ -28,5 +28,5 @@ Add assignments with:
 ## Status / roadmap
 1. [x] Initial Next.js structure and simple homepage
 2. [x] Add-assignment form and list (frontend state only, in `app/assignment-tracker.tsx`; Course, Assignment name and Due date are required; Status is Not Started / In Progress / Completed). No edit, delete or filtering yet; data is lost on refresh.
-3. [ ] Supabase integration
+3. [x] Supabase integration (load on page open, insert on submit; no auth yet)
 4. [ ] Deploy to Vercel

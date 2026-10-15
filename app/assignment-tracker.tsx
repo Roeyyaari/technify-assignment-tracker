@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { supabase } from "@/lib/supabase";
 
 const STATUSES = ["Not Started", "In Progress", "Completed"] as const;
 type Status = (typeof STATUSES)[number];
@@ -12,6 +13,27 @@ type Assignment = {
   dueDate: string;
   status: Status;
 };
+
+type AssignmentRow = {
+  id: string;
+  course: string;
+  name: string;
+  due_date: string;
+  status: Status;
+};
+
+function fromRow(row: AssignmentRow): Assignment {
+  return {
+    id: row.id,
+    course: row.course,
+    name: row.name,
+    dueDate: row.due_date,
+    status: row.status,
+  };
+}
+
+const NOT_CONFIGURED =
+  "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.";
 
 type Errors = Partial<Record<"course" | "name" | "dueDate", string>>;
 
@@ -60,6 +82,35 @@ export default function AssignmentTracker() {
   const [dueDate, setDueDate] = useState("");
   const [status, setStatus] = useState<Status>("Not Started");
   const [errors, setErrors] = useState<Errors>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!supabase) {
+        setLoadError(NOT_CONFIGURED);
+        setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("assignments")
+        .select("id, course, name, due_date, status")
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) setLoadError("Could not load assignments. Please try again.");
+      else setAssignments((data as AssignmentRow[]).map(fromRow));
+      setLoading(false);
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Re-validate a field as it changes, but only once it has shown an error.
   function revalidate(field: keyof Errors, value: string) {
@@ -67,8 +118,9 @@ export default function AssignmentTracker() {
     setErrors((prev) => ({ ...prev, [field]: validate(field, value) }));
   }
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (saving) return;
 
     const next: Errors = {};
     const courseError = validate("course", course);
@@ -80,16 +132,31 @@ export default function AssignmentTracker() {
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
-    setAssignments((prev) => [
-      {
-        id: crypto.randomUUID(),
+    if (!supabase) {
+      setSaveError(NOT_CONFIGURED);
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    const { data, error } = await supabase
+      .from("assignments")
+      .insert({
         course: course.trim(),
         name: name.trim(),
-        dueDate,
+        due_date: dueDate,
         status,
-      },
-      ...prev,
-    ]);
+      })
+      .select("id, course, name, due_date, status")
+      .single();
+    setSaving(false);
+
+    if (error || !data) {
+      setSaveError("Could not save the assignment. Please try again.");
+      return;
+    }
+
+    setAssignments((prev) => [fromRow(data as AssignmentRow), ...prev]);
     setCourse("");
     setName("");
     setDueDate("");
@@ -170,10 +237,16 @@ export default function AssignmentTracker() {
 
         <button
           type="submit"
-          className="mt-6 w-full rounded-lg bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 sm:w-auto"
+          disabled={saving}
+          className="mt-6 w-full rounded-lg bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-60 sm:w-auto"
         >
-          Add assignment
+          {saving ? "Saving…" : "Add assignment"}
         </button>
+        {saveError && (
+          <p role="alert" className="mt-3 text-sm text-red-500">
+            {saveError}
+          </p>
+        )}
       </form>
 
       <section aria-labelledby="list-heading">
@@ -184,7 +257,18 @@ export default function AssignmentTracker() {
           Assignments ({assignments.length})
         </h2>
 
-        {assignments.length === 0 ? (
+        {loadError ? (
+          <p
+            role="alert"
+            className="mt-4 rounded-2xl border border-red-500/30 px-6 py-10 text-center text-sm text-red-500"
+          >
+            {loadError}
+          </p>
+        ) : loading ? (
+          <p className="mt-4 rounded-2xl border border-dashed border-black/15 px-6 py-10 text-center text-sm text-zinc-500 dark:border-white/20">
+            Loading assignments…
+          </p>
+        ) : assignments.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-dashed border-black/15 px-6 py-10 text-center text-sm text-zinc-500 dark:border-white/20">
             No assignments yet. Add your first one above.
           </p>
