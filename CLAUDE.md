@@ -17,7 +17,7 @@ Add assignments with:
 ## Principles
 - Keep the project intentionally small and polished.
 - No extra features or dependencies beyond what is asked.
-- Never commit Supabase keys or `.env.local`. No auth, edit, delete or filtering until requested.
+- Never commit Supabase keys or `.env.local`. No auth, edit or filtering until requested. Delete exists (needs an anon `delete` RLS policy).
 - Do not commit unless asked.
 
 ## Commands

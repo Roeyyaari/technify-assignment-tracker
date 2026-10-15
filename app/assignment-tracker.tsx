@@ -86,6 +86,8 @@ export default function AssignmentTracker() {
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,6 +118,28 @@ export default function AssignmentTracker() {
   function revalidate(field: keyof Errors, value: string) {
     if (!errors[field]) return;
     setErrors((prev) => ({ ...prev, [field]: validate(field, value) }));
+  }
+
+  async function handleDelete(id: string, name: string) {
+    if (!supabase || deletingId) return;
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+
+    setDeletingId(id);
+    setDeleteError(null);
+    // Ask for the deleted row back: with no delete policy, Supabase removes
+    // nothing and returns no error, so an empty result means it failed.
+    const { data, error } = await supabase
+      .from("assignments")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    setDeletingId(null);
+
+    if (error || !data || data.length === 0) {
+      setDeleteError("Could not delete the assignment. Please try again.");
+      return;
+    }
+    setAssignments((prev) => prev.filter((a) => a.id !== id));
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -273,6 +297,12 @@ export default function AssignmentTracker() {
             No assignments yet. Add your first one above.
           </p>
         ) : (
+          <>
+          {deleteError && (
+            <p role="alert" className="mt-4 text-sm text-red-500">
+              {deleteError}
+            </p>
+          )}
           <ul className="mt-4 space-y-3">
             {assignments.map((a) => (
               <li
@@ -285,14 +315,26 @@ export default function AssignmentTracker() {
                     {a.course} · Due {formatDate(a.dueDate)}
                   </p>
                 </div>
-                <span
-                  className={`w-fit shrink-0 rounded-full px-3 py-1 text-xs font-medium ${statusStyles[a.status]}`}
-                >
-                  {a.status}
-                </span>
+                <div className="flex shrink-0 items-center justify-between gap-4 sm:justify-end">
+                  <span
+                    className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${statusStyles[a.status]}`}
+                  >
+                    {a.status}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(a.id, a.name)}
+                    disabled={deletingId === a.id}
+                    aria-label={`Delete ${a.name}`}
+                    className="text-xs font-medium text-zinc-500 transition-colors hover:text-red-500 disabled:opacity-60"
+                  >
+                    {deletingId === a.id ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
+          </>
         )}
       </section>
     </div>
